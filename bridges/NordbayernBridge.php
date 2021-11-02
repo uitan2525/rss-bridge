@@ -16,6 +16,7 @@ class NordbayernBridge extends BridgeAbstract {
 			'values' => array(
 				'Nürnberg' => 'nuernberg',
 				'Fürth' => 'fuerth',
+				'Erlangen' => 'erlangen',
 				'Altdorf' => 'altdorf',
 				'Ansbach' => 'ansbach',
 				'Bad Windsheim' => 'bad-windsheim',
@@ -46,15 +47,6 @@ class NordbayernBridge extends BridgeAbstract {
 		)
 	));
 
-	private function startsWith($string, $startString) {
-		$len = strlen($startString);
-		return (substr($string, 0, $len) === $startString);
-	}
-
-	private function contains($haystack, $needle) {
-		return (strpos($haystack, $needle) !== false);
-	}
-
 	private function getUseFullContent($rawContent) {
 		$content = '';
 		foreach($rawContent->children as $element) {
@@ -77,7 +69,11 @@ class NordbayernBridge extends BridgeAbstract {
 		defaultLinkTo($article, self::URI);
 
 		$item['uri'] = $link;
-		$item['title'] = $article->find('h2', 0)->innertext;
+		if ($article->find('h2', 0) == null) {
+			$item['title'] = $article->find('h3', 0)->innertext;
+		} else {
+			$item['title'] = $article->find('h2', 0)->innertext;
+		}
 		$item['content'] = '';
 
 		//first get images from content
@@ -87,9 +83,15 @@ class NordbayernBridge extends BridgeAbstract {
 			$item['content'] .= '<img src="' . $bannerUrl . '">';
 		}
 
-		$content = $article->find('section[class*=article__richtext]', 0)
+		if ($article->find('section[class*=article__richtext]', 0) == null) {
+			$content = $article->find('div[class*=modul__teaser]', 0)
+						   ->find('p', 0);
+			$item['content'] .= $content;
+		} else {
+			$content = $article->find('section[class*=article__richtext]', 0)
 						   ->find('div', 0)->find('div', 0);
-		$item['content'] .= self::getUseFullContent($content);
+			$item['content'] .= self::getUseFullContent($content);
+		}
 
 		for($i = 1; $i < count($pictures); $i++) {
 			$imgUrl = $pictures[$i]->find('img', 0)->src;
@@ -98,7 +100,7 @@ class NordbayernBridge extends BridgeAbstract {
 
 		// exclude police reports if descired
 		if($this->getInput('policeReports') ||
-			!self::contains($item['content'], 'Hier geht es zu allen aktuellen Polizeimeldungen.')) {
+			!str_contains($item['content'], 'Hier geht es zu allen aktuellen Polizeimeldungen.')) {
 			$this->items[] = $item;
 		}
 
